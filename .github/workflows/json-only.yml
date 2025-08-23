@@ -1,0 +1,24 @@
+name: JSON-only Checks
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  json_only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run JSON-only validation script
+        run: node validation/check_json_only.js
+
+      - name: Run adapter mock deploy tests
+        run: node validation/mock_deploy_test.js
