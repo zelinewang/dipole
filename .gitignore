@@ -1,2 +1,13 @@
-./state/
+state/
+logs/
 
+.env
+
+AGENT_ROADMAP.md
+current.md
+design.md
+execution.md
+MVP_verification.md
+resource.md
+VALIDATION_TESTS.md
+PROJECT_PLAN.md
