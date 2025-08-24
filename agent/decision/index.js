@@ -7,9 +7,6 @@ async function openAIChat(messages, { apiKey = process.env.OPENAI_API_KEY, model
   if (!apiKey) throw new Error('OPENAI_API_KEY is required for LLM-assisted decisions');
   const body = JSON.stringify({ model, messages, temperature: 0.2 });
   return new Promise((resolve, reject) => {
-    if (process.env.FAST_DEPLOY_DEBUG_LLM === '1') {
-      try { console.error(`[fast-deploy][decision] openai model=${model}`); } catch {}
-    }
     const req = https.request({
       hostname: 'api.openai.com',
       path: '/v1/chat/completions',

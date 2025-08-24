@@ -7,9 +7,6 @@ async function openAIChat(messages, { apiKey = process.env.OPENAI_API_KEY, model
   if (!apiKey) throw new Error('OPENAI_API_KEY required');
   const body = JSON.stringify({ model, messages, temperature: 0 });
   return new Promise((resolve, reject) => {
-    if (process.env.FAST_DEPLOY_DEBUG_LLM === '1') {
-      try { console.error(`[fast-deploy][diagnoser] openai model=${model}`); } catch {}
-    }
     const req = https.request({
       hostname: 'api.openai.com',
       path: '/v1/chat/completions',

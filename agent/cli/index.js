@@ -108,16 +108,65 @@ function ensureStatePaths() {
   const stateDir = path.join(baseDir, 'state');
   const logsDir = path.join(stateDir, 'logs');
   const deploymentsFile = path.join(stateDir, 'deployments.json');
+  const sessionsFile = path.join(stateDir, 'sessions.json');
   if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
   if (!fs.existsSync(deploymentsFile)) fs.writeFileSync(deploymentsFile, '[]');
-  return { stateDir, logsDir, deploymentsFile };
+  if (!fs.existsSync(sessionsFile)) fs.writeFileSync(sessionsFile, '[]');
+  return { stateDir, logsDir, deploymentsFile, sessionsFile };
 }
 
 function sha256(obj) {
   const h = crypto.createHash('sha256');
   h.update(JSON.stringify(obj));
   return h.digest('hex');
+}
+
+// --- Session helpers (minimal, JSON-array based) ---
+function loadArrayJSON(filePath) {
+  try {
+    const txt = fs.readFileSync(filePath, 'utf8');
+    const arr = JSON.parse(txt);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveArrayJSON(filePath, arr) {
+  try { fs.writeFileSync(filePath, JSON.stringify(arr, null, 2)); } catch (e) {}
+}
+
+function upsertSession(sessionsFile, partial) {
+  if (!partial || !partial.id) return null;
+  const now = Date.now();
+  const arr = loadArrayJSON(sessionsFile);
+  const idx = arr.findIndex((s) => s && s.id === partial.id);
+  if (idx === -1) {
+    const sess = Object.assign({ id: partial.id, createdAt: now, lastUpdatedAt: now, history: [] }, partial);
+    arr.push(sess);
+    saveArrayJSON(sessionsFile, arr);
+    return sess;
+  } else {
+    const curr = Object.assign({}, arr[idx], partial, { lastUpdatedAt: now });
+    arr[idx] = curr;
+    saveArrayJSON(sessionsFile, arr);
+    return curr;
+  }
+}
+
+function appendSessionEvent(sessionsFile, id, event) {
+  if (!id) return;
+  const now = Date.now();
+  const arr = loadArrayJSON(sessionsFile);
+  const idx = arr.findIndex((s) => s && s.id === id);
+  if (idx === -1) return;
+  const sess = arr[idx];
+  if (!Array.isArray(sess.history)) sess.history = [];
+  sess.history.push(Object.assign({ ts: now, type: 'event' }, event));
+  sess.lastUpdatedAt = now;
+  arr[idx] = sess;
+  saveArrayJSON(sessionsFile, arr);
 }
 
 async function cmdPlan(args) {
@@ -133,17 +182,29 @@ async function cmdPlan(args) {
   const allowLLM = args['no-llm'] ? false : true;
   const meta = analyzer.getProjectMeta(projectPath);
   const { decision, plan } = await decideDeployment(meta, { projectPath, allowLLM, preferredProvider: args.provider, preferredMethod: args.method });
-  const report = { projectPath, meta, decision, plan };
+  const { sessionsFile } = ensureStatePaths();
+  const sessionId = String(args.session || args.sessionId || crypto.randomUUID());
+  // upsert planning session snapshot
+  upsertSession(sessionsFile, {
+    id: sessionId,
+    projectPath,
+    status: 'planning',
+    provider: decision.provider,
+    method: decision.method,
+    lastPlanHash: sha256(plan)
+  });
+  appendSessionEvent(sessionsFile, sessionId, { name: 'plan', provider: decision.provider, method: decision.method });
+  const report = { projectPath, meta, decision, plan, sessionId };
   const decisionOut = { type: 'Decision', ...decision };
   const planOut = { type: 'Plan', ...plan };
   if (isJsonOnly(args)) {
-    printJSONBlock({ type: 'PlanResult', decision: decisionOut, plan: planOut }, '');
+    printJSONBlock({ type: 'PlanResult', sessionId, decision: decisionOut, plan: planOut }, '');
   } else {
     console.log('=== Plan Summary ===');
     console.log(`Provider: ${decision.provider} (${decision.method}), confidence ${decision.confidence}`);
     if (decision.rationale && decision.rationale.length) console.log('Rationale:\n- ' + decision.rationale.join('\n- '));
     console.log('--- JSON (PlanResult) ---');
-    printJSONBlock({ type: 'PlanResult', decision: decisionOut, plan: planOut }, '');
+    printJSONBlock({ type: 'PlanResult', sessionId, decision: decisionOut, plan: planOut }, '');
   }
   return report;
 }
@@ -162,6 +223,8 @@ async function cmdDeploy(args) {
   loadDotEnv(projectPath);
   const allowLLM = args['no-llm'] ? false : true;
   const meta = analyzer.getProjectMeta(projectPath);
+  const { sessionsFile } = ensureStatePaths();
+  const sessionId = String(args.session || args.sessionId || crypto.randomUUID());
 
   let preferredProvider = args.provider;
   let preferredMethod = args.method;
@@ -219,8 +282,11 @@ async function cmdDeploy(args) {
       durationSec: 0,
       metaHash: sha256(meta),
       decisionHash: sha256(decision),
-      logsPath: null
+      logsPath: null,
+      sessionId
     };
+    upsertSession(sessionsFile, { id: sessionId, projectPath, status: 'dry-run', provider: decision.provider, method: decision.method, lastRecordId: id });
+    appendSessionEvent(sessionsFile, sessionId, { name: 'deploy_dry_run', recordId: id });
     if (!jsonOnly) {
       console.log('=== Deploy (dry-run) ===');
       console.log(`Provider: ${decision.provider} (${decision.method}) | steps: ${(plan && plan.steps ? plan.steps.length : 0)}`);
@@ -238,16 +304,32 @@ async function cmdDeploy(args) {
   else throw new Error(`Unsupported provider: ${decision.provider}`);
 
   if (!jsonOnly) console.log(`Deploying via ${decision.provider} (${decision.method})...`);
-  const res = await deployer.deploy({ ...meta, path: projectPath });
+  upsertSession(sessionsFile, { id: sessionId, projectPath, status: 'deploying', provider: decision.provider, method: decision.method });
+  appendSessionEvent(sessionsFile, sessionId, { name: 'deploy_start' });
+
+  // Prepare logs streaming (pre-generate record id and logs file path)
+  const id = crypto.randomUUID();
+  let logsPath = path.join(logsDir, `${id}.log`);
+  let logStream = null;
+  try { logStream = fs.createWriteStream(logsPath, { flags: 'a' }); } catch (_) { logsPath = null; }
+  const onLog = (chunk) => {
+    try {
+      const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
+      if (logStream) logStream.write(text);
+      if (!jsonOnly) process.stdout.write(text);
+    } catch (_) {}
+  };
+
+  // Execute deploy with optional streaming support in deployer
+  const res = await deployer.deploy({ ...meta, path: projectPath }, { onLog });
   const durationSec = Math.round((Date.now() - t0) / 1000);
 
-  // Persist logs to file for later diagnosis
-  const id = crypto.randomUUID();
-  let logsPath = null;
-  if (res && res.logs) {
-    logsPath = path.join(logsDir, `${id}.log`);
+  // If deployer did not stream anything but returned logs at the end, persist them
+  if ((!logStream || (logStream && logStream.bytesWritten === 0)) && res && res.logs) {
+    if (!logsPath) logsPath = path.join(logsDir, `${id}.log`);
     try { fs.writeFileSync(logsPath, typeof res.logs === 'string' ? res.logs : JSON.stringify(res.logs, null, 2)); } catch (e) {}
   }
+  if (logStream) { try { logStream.end(); } catch (_) {} }
 
   // Persist deployment record
   const record = {
@@ -262,13 +344,18 @@ async function cmdDeploy(args) {
     durationSec,
     metaHash: sha256(meta),
     decisionHash: sha256(decision),
-    logsPath
+    logsPath,
+    sessionId
   };
   try {
     const arr = JSON.parse(fs.readFileSync(deploymentsFile, 'utf8'));
     arr.push(record);
     fs.writeFileSync(deploymentsFile, JSON.stringify(arr, null, 2));
   } catch (e) {}
+
+  // Update session based on outcome
+  upsertSession(sessionsFile, { id: sessionId, status: record.status, lastRecordId: id });
+  appendSessionEvent(sessionsFile, sessionId, { name: 'deploy_end', recordId: id, status: record.status });
 
   if (!jsonOnly) {
     console.log('=== Deploy Result ===');
@@ -280,11 +367,12 @@ async function cmdDeploy(args) {
 }
 
 async function cmdDiagnose(args) {
-  const { deploymentsFile } = ensureStatePaths();
+  const { deploymentsFile, sessionsFile } = ensureStatePaths();
   const allowLLM = args['no-llm'] ? false : true; // default ON
   const diagnoser = require('../diagnoser');
 
   let logText = '';
+  let sessionId = args.session || args.sessionId || null;
   if (args.log) {
     logText = fs.readFileSync(path.resolve(args.log), 'utf8');
   } else if (args.id) {
@@ -292,6 +380,7 @@ async function cmdDiagnose(args) {
     const rec = arr.find((r) => r.id === args.id);
     if (!rec || !rec.logsPath || !fs.existsSync(rec.logsPath)) throw new Error('No logs found for given id');
     logText = fs.readFileSync(rec.logsPath, 'utf8');
+    if (!sessionId && rec.sessionId) sessionId = rec.sessionId;
   } else {
     throw new Error('Provide --log <path> or --id <recordId>');
   }
@@ -308,13 +397,18 @@ async function cmdDiagnose(args) {
   const meta = analyzer.getProjectMeta(projectPath);
   const result = await diagnoser.diagnose(logText, meta, { allowLLM });
   if (!isJsonOnly(args)) console.log('=== Diagnose Result ===');
-  printJSONBlock(result, '');
+  const out = sessionId ? Object.assign({}, result, { sessionId }) : result;
+  if (sessionId) {
+    upsertSession(sessionsFile, { id: String(sessionId), projectPath, status: 'diagnosed' });
+    appendSessionEvent(sessionsFile, String(sessionId), { name: 'diagnose', category: result.category, confidence: result.confidence });
+  }
+  printJSONBlock(out, '');
   return result;
 }
 
 async function cmdUndeploy(args) {
   // Safe MVP: print suggested commands rather than destructive actions
-  const { deploymentsFile } = ensureStatePaths();
+  const { deploymentsFile, sessionsFile } = ensureStatePaths();
   if (!args.id) throw new Error('Provide --id <recordId>');
   const arr = JSON.parse(fs.readFileSync(deploymentsFile, 'utf8'));
   const rec = arr.find((r) => r.id === args.id);
@@ -330,6 +424,11 @@ async function cmdUndeploy(args) {
   }
   if (!isJsonOnly(args)) console.log('=== Undeploy Suggestions (Safe) ===');
   const out = { type: 'UndeploySuggestions', id: rec.id, provider: rec.provider, suggestions };
+  if (rec.sessionId) {
+    upsertSession(sessionsFile, { id: rec.sessionId, status: 'pending_delete' });
+    appendSessionEvent(sessionsFile, rec.sessionId, { name: 'undeploy_suggested', recordId: rec.id });
+    out.sessionId = rec.sessionId;
+  }
   printJSONBlock(out, '');
   return out;
 }
@@ -347,7 +446,7 @@ async function main() {
         printJSONBlock({ type: 'Error', message: `Unknown command: ${cmd}` }, '');
         process.exitCode = 2;
       } else {
-        console.log('Usage: fast-deploy <plan|deploy|diagnose|undeploy> [--path .] [--provider] [--method] [--no-llm] [--dry-run] [--chat-lite] [--json-only] [--non-interactive] [--yes]');
+        console.log('Usage: fast-deploy <plan|deploy|diagnose|undeploy> [--path .] [--provider] [--method] [--no-llm] [--dry-run] [--chat-lite] [--json-only] [--non-interactive] [--yes] [--session <id>]');
       }
     }
   } catch (e) {

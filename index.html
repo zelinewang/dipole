@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dipole - Deploy can be even Faster</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0d0f14 0%, #0f1115 100%);
+            color: #e6e8ef;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        /* Header */
+        header {
+            padding: 2rem 0;
+            position: relative;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2ec4b6;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: #a8b0c3;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-links a:hover {
+            color: #2ec4b6;
+        }
+        
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 6rem;
+            position: relative;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(46,196,182,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #2ec4b6 0%, #ff7f50 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero .subtitle {
+            font-size: 1.5rem;
+            color: #a8b0c3;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 4rem;
+        }
+        
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2ec4b6 0%, #2dd4bf 100%);
+            color: #0f1115;
+            box-shadow: 0 8px 32px rgba(46,196,182,0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(46,196,182,0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(22,26,34,0.8);
+            color: #e6e8ef;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(22,26,34,0.9);
+            border-color: rgba(46,196,182,0.3);
+        }
+        
+        /* Features Grid */
+        .features {
+            padding: 6rem 0;
+        }
+        
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: #e6e8ef;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+        
+        .feature-card {
+            background: rgba(22,26,34,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(46,196,182,0.3);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #2ec4b6;
+        }
+        
+        .feature-card p {
+            color: #a8b0c3;
+            line-height: 1.6;
+        }
+        
+        /* Setup Section */
+        .setup {
+            background: rgba(22,26,34,0.4);
+            padding: 6rem 0;
+            margin: 4rem 0;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .setup h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #e6e8ef;
+        }
+        
+        .setup-warning {
+            background: rgba(255,127,80,0.1);
+            border: 1px solid rgba(255,127,80,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+        
+        .setup-warning h3 {
+            color: #ff7f50;
+            margin-bottom: 1rem;
+        }
+        
+        .setup-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+        
+        .setup-step {
+            background: rgba(22,26,34,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .setup-step .step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #2ec4b6 0%, #2dd4bf 100%);
+            color: #0f1115;
+            border-radius: 50%;
+            font-weight: 700;
+            line-height: 40px;
+            margin-bottom: 1rem;
+        }
+        
+        .setup-step h4 {
+            color: #2ec4b6;
+            margin-bottom: 1rem;
+        }
+        
+        .code-block {
+            background: #0b0e13;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            color: #dde3f0;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        
+        /* Footer */
+        footer {
+            padding: 4rem 0 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 6rem;
+        }
+        
+        .footer-content {
+            color: #a8b0c3;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .footer-links a {
+            color: #a8b0c3;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: #2ec4b6;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">
+                ⚡ Dipole
+            </div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#setup">Setup</a></li>
+                <li><a href="https://github.com/your-repo" target="_blank">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Deploy can be even Faster</h1>
+                    <p class="subtitle">AI-powered deployment automation that makes web deployment as simple as a conversation. Chat with our AI, provide your project path, and watch the magic happen.</p>
+                    
+                    <div class="cta-buttons">
+                        <a href="http://localhost:8501" class="btn btn-primary" target="_blank">
+                            🚀 Launch Dipole App
+                        </a>
+                        <a href="#setup" class="btn btn-secondary">
+                            📋 Setup Guide
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <div class="container">
+                <h2>Why Choose Dipole?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <span class="feature-icon">🤖</span>
+                        <h3>AI-Powered Intelligence</h3>
+                        <p>Smart project analysis and deployment strategy selection. Our AI understands your project structure and chooses the optimal deployment method automatically.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="feature-icon">📊</span>
+                        <h3>Real-Time Progress</h3>
+                        <p>Visual progress tracking with live log streaming. Watch your deployment happen in real-time with detailed progress indicators and instant feedback.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="feature-icon">🚀</span>
+                        <h3>Multi-Platform Support</h3>
+                        <p>Deploy to Netlify or Vercel with CLI or API methods. Support for React, Next.js, Vue, static sites, and many more frameworks.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="feature-icon">📱</span>
+                        <h3>Mobile-Friendly Sharing</h3>
+                        <p>QR codes and instant URL sharing make it easy to test your deployments on any device. Perfect for client presentations and team collaboration.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="feature-icon">🔧</span>
+                        <h3>Advanced Diagnostics</h3>
+                        <p>Built-in log analysis and troubleshooting tools. Copy, download, and analyze deployment logs with intelligent error detection.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="feature-icon">💬</span>
+                        <h3>Conversational Interface</h3>
+                        <p>Natural language deployment commands. Simply chat with the AI using plain English - no complex configuration files needed.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="setup" class="setup">
+            <div class="container">
+                <h2>Setup Required for Lovable AI Integration</h2>
+                
+                <div class="setup-warning">
+                    <h3>⚠️ Important: Complete Setup Before Using Public App</h3>
+                    <p>To use Dipole in a public Lovable AI environment, you must first complete all setup steps on your local machine. This ensures proper authentication and API access.</p>
+                </div>
+
+                <div class="setup-steps">
+                    <div class="setup-step">
+                        <div class="step-number">1</div>
+                        <h4>Install Prerequisites</h4>
+                        <p>Node.js (v18+), Python (v3.9+)</p>
+                        <div class="code-block">
+                            node --version<br>
+                            python --version
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">2</div>
+                        <h4>Get OpenAI API Key</h4>
+                        <p>Required for AI functionality</p>
+                        <div class="code-block">
+                            # Get from:<br>
+                            # platform.openai.com/api-keys
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">3</div>
+                        <h4>Setup Netlify CLI</h4>
+                        <p>For Netlify deployments</p>
+                        <div class="code-block">
+                            npm install -g netlify-cli<br>
+                            netlify login
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">4</div>
+                        <h4>Setup Vercel CLI</h4>
+                        <p>For Vercel deployments</p>
+                        <div class="code-block">
+                            npm install -g vercel<br>
+                            vercel login
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">5</div>
+                        <h4>Clone & Install</h4>
+                        <p>Get the Dipole repository</p>
+                        <div class="code-block">
+                            git clone &lt;repo-url&gt;<br>
+                            cd fast_deploy<br>
+                            pip install -r demo/requirements.txt
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">6</div>
+                        <h4>Configure Environment</h4>
+                        <p>Set your API keys</p>
+                        <div class="code-block">
+                            cp .env.example .env<br>
+                            # Edit .env with your keys
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 3rem;">
+                    <a href="http://localhost:8501" class="btn btn-primary" target="_blank">
+                        🚀 Ready? Launch Dipole
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="https://github.com/your-repo" target="_blank">GitHub</a>
+                    <a href="https://streamlit.io/" target="_blank">Built with Streamlit</a>
+                    <a href="https://langchain.com/" target="_blank">Powered by LangChain</a>
+                    <a href="https://openai.com/" target="_blank">AI by OpenAI</a>
+                </div>
+                <p>&copy; 2024 Dipole. Built with ❤️ for faster deployments.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

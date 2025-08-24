@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -13,6 +13,21 @@ function execCmd(cmd, opts = {}) {
         return reject(e);
       }
       resolve({ stdout, stderr });
+    });
+  });
+}
+
+function execCmdStream(cmd, opts = {}, onLog) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, { ...(opts || {}), shell: true });
+    let stdout = '';
+    let stderr = '';
+    if (child.stdout) child.stdout.on('data', (d) => { const t = d.toString(); stdout += t; if (onLog) onLog(t); });
+    if (child.stderr) child.stderr.on('data', (d) => { const t = d.toString(); stderr += t; if (onLog) onLog(t); });
+    child.on('error', (err) => reject(new Error(`Command failed: ${cmd}\n${stderr || err.message}`)));
+    child.on('close', (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(`Command failed: ${cmd}\n${stderr}`));
     });
   });
 }
@@ -52,13 +67,15 @@ function httpsRequest(options, body) {
   });
 }
 
-async function deploy(projectMeta = {}) {
+async function deploy(projectMeta = {}, options = {}) {
+  const onLog = options && options.onLog ? options.onLog : null;
   // Test-only mock: if FAST_DEPLOY_MOCK is set, bypass external calls
   if (process.env.FAST_DEPLOY_MOCK) {
     const mode = String(process.env.FAST_DEPLOY_MOCK).toLowerCase();
-    if (mode === 'success') return { url: 'https://mock.vercel.app', logs: 'mocked: success', mock: true };
-    if (mode === 'rate_limit') return { url: null, logs: '429 Too Many Requests', error: 'rate_limit', mock: true };
-    if (mode === 'fail') return { url: null, logs: 'mocked: failure', error: 'mock_failure', mock: true };
+    if (onLog) onLog(`[mock] vercel deploy starting...\n`);
+    if (mode === 'success') { if (onLog) onLog(`[mock] vercel deploy success\n`); return { url: 'https://mock.vercel.app', logs: 'mocked: success', mock: true }; }
+    if (mode === 'rate_limit') { if (onLog) onLog(`[mock] vercel rate_limit\n`); return { url: null, logs: '429 Too Many Requests', error: 'rate_limit', mock: true }; }
+    if (mode === 'fail') { if (onLog) onLog(`[mock] vercel deploy failure\n`); return { url: null, logs: 'mocked: failure', error: 'mock_failure', mock: true }; }
   }
   const projectPath = projectMeta.path ? path.resolve(projectMeta.path) : process.cwd();
   // Ensure build step runs if present
@@ -134,7 +151,14 @@ async function deploy(projectMeta = {}) {
     let cmd = 'npx vercel --prod --yes';
     if (vercelToken) cmd += ` --token ${vercelToken}`;
 
-    const { stdout } = await execCmd(cmd, { cwd: projectPath, env: process.env });
+    let stdout;
+    if (onLog) {
+      const res = await execCmdStream(cmd, { cwd: projectPath, env: process.env }, onLog);
+      stdout = res.stdout;
+    } else {
+      const res = await execCmd(cmd, { cwd: projectPath, env: process.env });
+      stdout = res.stdout;
+    }
 
     // Attempt to parse a URL from stdout
     const urlMatch = stdout.match(/https?:\/\/[^\s]+/);
