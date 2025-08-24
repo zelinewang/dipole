@@ -16,3 +16,5 @@ PROJECT_PLAN.md
 verification.md
 
 .venv/
+# Local Netlify folder
+.netlify
