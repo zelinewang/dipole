@@ -64,7 +64,7 @@ if not CLI_PATH.exists():
 # -------------------------------------------------------------------------------------
 # Streamlit page setup (modern, clean, avoid purple; dark mode friendly)
 # -------------------------------------------------------------------------------------
-st.set_page_config(page_title="Fast Deploy Agent", layout="wide")
+st.set_page_config(page_title="Dipole - Deploy can be even Faster", layout="wide")
 
 CUSTOM_CSS = """
 <style>
@@ -96,7 +96,7 @@ CUSTOM_CSS = """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------------------
-# Helper: run CLI with streaming
+# Helper: run CLI with streaming + secrets/env management
 # -------------------------------------------------------------------------------------
 
 def run_cli_stream(cmd: str, env: Optional[Dict[str, str]] = None, cwd: Optional[str] = None):
@@ -158,6 +158,55 @@ def normalize_url(u: Optional[str]) -> Optional[str]:
     if s.startswith("//"):
         return "https:" + s
     return "https://" + s
+
+
+# Secrets paths and helpers
+SECRETS_PATH = REPO_ROOT / "state" / "user_secrets.json"
+
+def load_cached_secrets() -> Dict[str, str]:
+    try:
+        if SECRETS_PATH.exists():
+            return json.loads(SECRETS_PATH.read_text("utf-8"))
+    except Exception:
+        pass
+    return {}
+
+def save_cached_secrets(secrets: Dict[str, str]) -> None:
+    try:
+        SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        SECRETS_PATH.write_text(json.dumps(secrets, indent=2), encoding="utf-8")
+    except Exception:
+        # Non-fatal if running in a read-only env (e.g., Streamlit Cloud on some plans)
+        pass
+
+def get_current_secrets() -> Dict[str, str]:
+    return st.session_state.get("secrets", {})
+
+def apply_secrets_to_env() -> None:
+    s = get_current_secrets()
+    if s.get("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = s["OPENAI_API_KEY"]
+    if s.get("OPENAI_MODEL"):
+        os.environ["OPENAI_MODEL"] = s["OPENAI_MODEL"]
+    if s.get("NETLIFY_TOKEN"):
+        os.environ["NETLIFY_TOKEN"] = s["NETLIFY_TOKEN"]
+        os.environ["NETLIFY_AUTH_TOKEN"] = s["NETLIFY_TOKEN"]
+    if s.get("VERCEL_TOKEN"):
+        os.environ["VERCEL_TOKEN"] = s["VERCEL_TOKEN"]
+
+def build_env() -> Dict[str, str]:
+    env = os.environ.copy()
+    s = get_current_secrets()
+    if s.get("OPENAI_API_KEY"):
+        env["OPENAI_API_KEY"] = s["OPENAI_API_KEY"]
+    if s.get("OPENAI_MODEL"):
+        env["OPENAI_MODEL"] = s["OPENAI_MODEL"]
+    if s.get("NETLIFY_TOKEN"):
+        env["NETLIFY_TOKEN"] = s["NETLIFY_TOKEN"]
+        env["NETLIFY_AUTH_TOKEN"] = s["NETLIFY_TOKEN"]
+    if s.get("VERCEL_TOKEN"):
+        env["VERCEL_TOKEN"] = s["VERCEL_TOKEN"]
+    return env
 
 
 def update_progress_step(step: int, status: str = "active"):
@@ -299,7 +348,7 @@ def tool_plan(project_path: str, provider: Optional[str] = None, method: Optiona
     cmd = " ".join(args)
 
     out_lines = []
-    for kind, payload in run_cli_stream(cmd):
+    for kind, payload in run_cli_stream(cmd, env=build_env()):
         if kind == "line":
             out_lines.append(payload)
         elif kind == "end":
@@ -345,7 +394,7 @@ def tool_deploy(project_path: str, session_id: Optional[str] = None, dry_run: bo
 
     buffer = []
     final_json = None
-    for kind, payload in run_cli_stream(cmd):
+    for kind, payload in run_cli_stream(cmd, env=build_env()):
         if kind == "line":
             buffer.append(payload)
             # Store logs in session state for copy/download functionality
@@ -402,7 +451,7 @@ def tool_diagnose(project_path: Optional[str] = None, log_path: Optional[str] = 
     cmd = " ".join(args)
 
     collected = []
-    for kind, payload in run_cli_stream(cmd):
+    for kind, payload in run_cli_stream(cmd, env=build_env()):
         if kind == "line":
             collected.append(payload)
         elif kind == "end":
@@ -487,9 +536,23 @@ prompt = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-agent = create_openai_tools_agent(llm=llm, tools=TOOLS, prompt=prompt)
-agent_executor = AgentExecutor(agent=agent, tools=TOOLS, verbose=True)
+def get_agent_executor():
+    """Build or reuse AgentExecutor based on current secrets/model in session."""
+    # Ensure env has current secrets before constructing LLM
+    apply_secrets_to_env()
+    secrets = st.session_state.get("secrets", {})
+    model_name = secrets.get("OPENAI_MODEL") or "gpt-4o-mini"
+
+    key = (model_name, bool(secrets.get("OPENAI_API_KEY")))
+    cached = st.session_state.get("_agent_cache")
+    if cached and cached.get("key") == key and cached.get("executor") is not None:
+        return cached["executor"]
+
+    llm_local = ChatOpenAI(model=model_name, temperature=0.2)
+    agent_local = create_openai_tools_agent(llm=llm_local, tools=TOOLS, prompt=prompt)
+    executor_local = AgentExecutor(agent=agent_local, tools=TOOLS, verbose=True)
+    st.session_state["_agent_cache"] = {"key": key, "executor": executor_local}
+    return executor_local
 
 # -------------------------------------------------------------------------------------
 # UI Layout
@@ -561,6 +624,19 @@ if "deploy_progress" not in st.session_state:
     st.session_state.deploy_progress = {"step": 0, "status": "idle"}
 if "current_logs" not in st.session_state:
     st.session_state.current_logs = ""
+if "secrets" not in st.session_state:
+    # Initialize secrets from cache or environment
+    cached = load_cached_secrets()
+    env_defaults = {
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+        "OPENAI_MODEL": os.environ.get("OPENAI_MODEL", ""),
+        "NETLIFY_TOKEN": os.environ.get("NETLIFY_TOKEN", os.environ.get("NETLIFY_AUTH_TOKEN", "")),
+        "VERCEL_TOKEN": os.environ.get("VERCEL_TOKEN", ""),
+    }
+    # Merge, preferring cached over env if present
+    init_secrets = {**env_defaults, **cached}
+    st.session_state.secrets = {k: v for k, v in init_secrets.items() if v}
+    apply_secrets_to_env()
 
 # Right column placeholders - expand preview area
 left, right = st.columns([5, 7])
@@ -631,6 +707,82 @@ with right:
             st.session_state["preview_placeholder"] = st.container()
 
 with left:
+    # Secrets panel
+    with stylable_container(
+        key="secrets_panel",
+        css_styles="""
+        {
+            background: rgba(22,26,34,0.6);
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 0.8rem;
+        }
+        """
+    ):
+        st.markdown("**🔐 Secrets**", help="Provide tokens/keys used for deploy and AI.")
+        s = st.session_state.get("secrets", {})
+        col_a, col_b = st.columns(2)
+        with col_a:
+            openai_key = st.text_input(
+                "OPENAI_API_KEY",
+                value="",
+                type="password",
+                placeholder="sk-...",
+                help="Used by the AI agent. Stored in session; optionally remember locally.",
+            )
+            netlify_token = st.text_input(
+                "NETLIFY_TOKEN",
+                value="",
+                type="password",
+                placeholder="e.g. 123abc...",
+                help="Required for Netlify CLI/API deploys.",
+            )
+        with col_b:
+            model_default = s.get("OPENAI_MODEL") or "gpt-4o-mini"
+            openai_model = st.text_input(
+                "OPENAI_MODEL",
+                value=model_default,
+                help="LLM model name (e.g., gpt-4o, gpt-4o-mini).",
+            )
+            vercel_token = st.text_input(
+                "VERCEL_TOKEN",
+                value="",
+                type="password",
+                placeholder="e.g. vct_...",
+                help="Required for Vercel CLI/API deploys.",
+            )
+
+        remember = st.checkbox("Remember on this device (stores encrypted-like JSON locally)", value=bool(s))
+        c1, c2, c3 = st.columns([1,1,2])
+        with c1:
+            if st.button("Save", key="save_secrets"):
+                new_s = {}
+                # Only update fields user provided; keep existing otherwise
+                if openai_key:
+                    new_s["OPENAI_API_KEY"] = openai_key.strip()
+                if openai_model:
+                    new_s["OPENAI_MODEL"] = openai_model.strip()
+                if netlify_token:
+                    new_s["NETLIFY_TOKEN"] = netlify_token.strip()
+                if vercel_token:
+                    new_s["VERCEL_TOKEN"] = vercel_token.strip()
+                merged = {**s, **{k: v for k, v in new_s.items() if v}}
+                st.session_state["secrets"] = merged
+                apply_secrets_to_env()
+                # Rebuild agent cache
+                st.session_state.pop("_agent_cache", None)
+                if remember:
+                    save_cached_secrets(merged)
+                st.toast("Secrets saved.", icon="🔐")
+        with c2:
+            if st.button("Clear", key="clear_secrets"):
+                st.session_state["secrets"] = {}
+                st.session_state.pop("_agent_cache", None)
+                if remember:
+                    save_cached_secrets({})
+                st.toast("Secrets cleared from session.", icon="🧹")
+
     # Chat history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -650,7 +802,9 @@ with left:
                         lc_history.append(AIMessage(content=m.get("content", "")))
 
                 # Invoke the agent with proper chat history for structured tools agent
-                res = agent_executor.invoke({"input": user_query, "chat_history": lc_history})
+                # Use agent bound to current secrets/model
+                executor = get_agent_executor()
+                res = executor.invoke({"input": user_query, "chat_history": lc_history})
                 output_text = res.get("output") if isinstance(res, dict) else str(res)
                 st.write(output_text)
                 st.session_state.messages.append({"role": "assistant", "content": output_text})

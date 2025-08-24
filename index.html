@@ -471,6 +471,17 @@
                             # Edit .env with your keys
                         </div>
                     </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">7</div>
+                        <h4>Enter Secrets in App</h4>
+                        <p>Use the left “Secrets” panel to input tokens</p>
+                        <div class="code-block">
+                            OPENAI_API_KEY, OPENAI_MODEL<br>
+                            NETLIFY_TOKEN, VERCEL_TOKEN
+                        </div>
+                        <p style="margin-top:0.5rem;color:#a8b0c3;">Optionally enable “Remember on this device” to cache to <code>state/user_secrets.json</code>. These values are injected to CLI and AI agent via environment variables.</p>
+                    </div>
                 </div>
 
                 <div style="text-align: center; margin-top: 3rem;">

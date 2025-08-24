@@ -31,31 +31,34 @@ Before using Dipole, ensure you have:
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone <your-repo-url>
    cd fast_deploy
    ```
 
 2. **Install dependencies**:
+
    ```bash
    # Install Python dependencies
    pip install -r demo/requirements.txt
-   
+
    # Install Node.js dependencies
    npm install
    ```
 
 3. **Configure environment variables**:
+
    ```bash
    # Copy the example environment file
    cp .env.example .env
-   
+
    # Edit .env with your API keys
    OPENAI_API_KEY=your_openai_api_key_here
    ```
 
 4. **Set up deployment platforms**:
-   
+
    **For Netlify:**
    ```bash
    npm install -g netlify-cli
@@ -86,7 +89,7 @@ Open your browser to `http://localhost:8501` and start deploying!
 
 ### Example Conversation
 
-```
+```text
 You: My project is at /Users/john/my-react-app
 AI: I'll analyze your React project and create a deployment plan.
 
@@ -96,6 +99,23 @@ AI: Updated preferences to use Netlify CLI method.
 You: Deploy now
 AI: Starting deployment... [Progress tracking and live logs appear]
 ```
+
+## 🔐 Secrets & Tokens (In-App Input)
+
+Dipole provides a dedicated Secrets panel (left sidebar) to input and reuse required tokens:
+
+- OPENAI_API_KEY (required)
+- OPENAI_MODEL (optional, defaults to "gpt-4o-mini")
+- NETLIFY_TOKEN (required for Netlify CLI/API flows)
+- VERCEL_TOKEN (required for Vercel CLI/API flows)
+
+When you click Save:
+
+- Secrets are stored in the current Streamlit session and can optionally be persisted to `state/user_secrets.json` (for reuse on this device).
+- All CLI subprocesses automatically receive these values via environment variables (e.g., `NETLIFY_AUTH_TOKEN`, `VERCEL_TOKEN`).
+- The AI agent is rebuilt to use `OPENAI_API_KEY` and the chosen `OPENAI_MODEL` immediately.
+
+Security note: `state/user_secrets.json` is stored on your local disk. Only enable “Remember on this device” on trusted, private machines.
 
 ## 🛠️ Advanced Features
 
