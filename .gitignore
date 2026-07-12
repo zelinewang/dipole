@@ -16,5 +16,8 @@ PROJECT_PLAN.md
 verification.md
 
 .venv/
-# Local Netlify folder
+# Local Netlify folder (build artifact; do not commit — regenerated on deploy)
 .netlify
+
+# Node dependencies (never commit vendored node_modules, incl. fixture build output)
+node_modules/
