@@ -77,8 +77,8 @@
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 800px;
-            height: 800px;
+            width: min(800px, 100%);
+            aspect-ratio: 1;
             background: radial-gradient(circle, rgba(46,196,182,0.1) 0%, transparent 70%);
             pointer-events: none;
         }
@@ -347,14 +347,11 @@
                     <p class="subtitle">AI-powered deployment automation that makes web deployment as simple as a conversation. Chat with our AI, provide your project path, and watch the magic happen.</p>
                     
                     <div class="cta-buttons">
-                        <a href="http://localhost:8501" class="btn btn-primary" target="_blank">
-                            🚀 Launch Dipole App
+                        <a href="#setup" class="btn btn-primary">
+                            🚀 Set Up Locally
                         </a>
-                        <a href="https://dipoler.streamlit.app/" class="btn btn-secondary" target="_blank">
-                            🌐 Open Hosted Streamlit App
-                        </a>
-                        <a href="#setup" class="btn btn-secondary">
-                            📋 Setup Guide
+                        <a href="https://github.com/zelinewang/dipole" class="btn btn-secondary" target="_blank">
+                            View Source on GitHub
                         </a>
                     </div>
                 </div>
@@ -501,7 +498,7 @@
             <div class="footer-content">
                 <div class="footer-links">
                     <a href="https://github.com/zelinewang/dipole" target="_blank">GitHub</a>
-                    <a href="https://dipoler.streamlit.app/" target="_blank">Hosted Streamlit App</a>
+                    <a href="#setup">Local Setup</a>
                     <a href="https://streamlit.io/" target="_blank">Built with Streamlit</a>
                     <a href="https://langchain.com/" target="_blank">Powered by LangChain</a>
                     <a href="https://openai.com/" target="_blank">AI by OpenAI</a>
