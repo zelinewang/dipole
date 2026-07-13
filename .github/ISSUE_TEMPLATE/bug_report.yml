@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a problem with the dipole demo
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dipole is a demo of an agent that deploys to Netlify/Vercel. It has a
+        mock mode (`FAST_DEPLOY_MOCK`) that reproduces most of the flow with no
+        credentials — if you can trigger the bug there, all the better.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Expected versus actual. Include the JSON the CLI emitted if relevant.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Mock (`FAST_DEPLOY_MOCK=...`)
+        - Real deploy
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Target provider
+      options:
+        - Netlify
+        - Vercel
+        - N/A (planning / analyzer)
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS + Node/Python versions
+      placeholder: "macOS 15, Node 18.20, Python 3.11"
+    validations:
+      required: true
