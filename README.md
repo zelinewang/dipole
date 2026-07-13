@@ -35,6 +35,18 @@ streamlit run demo/streamlit_app.py   # opens http://localhost:8501
 
 The Node CLI runs on Node built-ins (`dotenv` is loaded only if present), so there is **no `npm install`** step. For real deploys, install the provider CLI (`netlify-cli` or `vercel`) and set `NETLIFY_AUTH_TOKEN` / `VERCEL_TOKEN` — either in the environment, a root `.env`, or the in-app **Secrets** panel.
 
+## Validate locally
+
+Run all four credential-free component validations with one command:
+
+```bash
+bash validation/run_validation.sh
+```
+
+The script stops at the first failure and covers fixture detection, analyzer
+behavior, JSON-only CLI output, and mocked Netlify/Vercel deploy flows. It does
+not perform a live provider deployment.
+
 ### Typical flow
 
 1. "My project path is `/absolute/path/to/project`" → the agent runs `plan`.
@@ -44,7 +56,7 @@ The Node CLI runs on Node built-ins (`dotenv` is loaded only if present), so the
 
 ## What this is not
 
-- **Not a hosted service.** You run it locally. The [landing page](https://dipoler.netlify.app/) only points you to launch it on your own machine.
+- **Not a hosted service.** The [landing page](https://dipoler.netlify.app/) is static documentation; install and launch the working Streamlit UI on your own machine.
 - **Not production-hardened.** This is a ~7-commit demo of the agent loop, not a maintained tool.
 - **Not a replacement for the Netlify/Vercel CLIs** — it orchestrates them.
 - **Detection-limited.** It handles the common front-end project types it can recognize (static, React/Vite, Next.js, and similar); anything unusual may need manual setup.
