@@ -2,6 +2,7 @@
 
 **A small demo of an AI agent that deploys a web project to Netlify or Vercel from a chat prompt.**
 
+[![JSON-only Checks](https://github.com/zelinewang/dipole/actions/workflows/json-only.yml/badge.svg)](https://github.com/zelinewang/dipole/actions/workflows/json-only.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/status-demo-blue)](#what-this-is-not)
 
