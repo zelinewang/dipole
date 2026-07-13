@@ -1,196 +1,62 @@
-# ⚡ Dipole - Deploy can be even Faster
+# ⚡ Dipole
 
-> AI-powered deployment automation that makes web deployment as simple as a conversation.
+**A small demo of an AI agent that deploys a web project to Netlify or Vercel from a chat prompt.**
 
-## 🌟 What is Dipole?
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Demo](https://img.shields.io/badge/status-demo-blue)](#what-this-is-not)
 
-Dipole is an intelligent deployment assistant that combines the power of AI with modern deployment platforms. Simply chat with our AI agent, provide your project path, and watch as it automatically analyzes, plans, and deploys your web applications to Netlify or Vercel.
+Tell the agent where your project is, and it analyzes the project type, picks a deployment target, runs the deploy, and streams the logs back — with a mock mode so you can watch the whole flow without touching a real provider.
 
-### ✨ Key Features
+## What it demonstrates
 
-- **🤖 AI-Powered Decisions**: Smart project analysis and deployment strategy selection
-- **📊 Real-Time Progress**: Visual progress tracking with live log streaming
-- **🚀 Multi-Platform Support**: Deploy to Netlify or Vercel with CLI or API methods
-- **📱 Mobile-Friendly Sharing**: QR codes and instant URL sharing
-- **🔧 Advanced Diagnostics**: Built-in log analysis and troubleshooting tools
-- **💬 Conversational Interface**: Natural language deployment commands
+- **A Node CLI agent** (`agent/`) that analyzes a project, decides between Netlify and Vercel, deploys via the provider CLI or API, and streams `onLog` chunks.
+- **A Streamlit chat UI** (`demo/`) that drives the CLI over subprocess: `plan` → `deploy` → `diagnose` → tail logs, with structured JSON between the two layers.
+- **A mock mode** (`FAST_DEPLOY_MOCK=success|fail|rate_limit`) for demoing the agent loop with no real deployment or API key.
+- **A validation harness** (`validation/`) with fixture apps (static, Vite/React, Next.js) and JSON-only output checks.
 
-## 🚀 Quick Start
+## How to run
 
-### Prerequisites
-
-Before using Dipole, ensure you have:
-
-1. **Node.js** (v18 or higher)
-2. **Python** (v3.9 or higher)
-3. **OpenAI API Key** - Get one from [OpenAI Platform](https://platform.openai.com/api-keys)
-4. **Deployment Platform Access**:
-   - **Netlify**: [Create account](https://app.netlify.com/signup) and get CLI token
-   - **Vercel**: [Create account](https://vercel.com/signup) and get CLI token
-
-### Installation
-
-1. **Clone the repository**:
-
-   ```bash
-   git clone <your-repo-url>
-   cd fast_deploy
-   ```
-
-2. **Install dependencies**:
-
-   ```bash
-   # Install Python dependencies
-   pip install -r demo/requirements.txt
-
-   # Install Node.js dependencies
-   npm install
-   ```
-
-3. **Configure environment variables**:
-
-   ```bash
-   # Copy the example environment file
-   cp .env.example .env
-
-   # Edit .env with your API keys
-   OPENAI_API_KEY=your_openai_api_key_here
-   ```
-
-4. **Set up deployment platforms**:
-
-   **For Netlify:**
-   ```bash
-   npm install -g netlify-cli
-   netlify login
-   ```
-   
-   **For Vercel:**
-   ```bash
-   npm install -g vercel
-   vercel login
-   ```
-
-### Launch Dipole
+**Prerequisites:** Python 3.10+, Node.js 18+ (the Streamlit app shells out to `node agent/cli/index.js`), and an OpenAI API key.
 
 ```bash
-streamlit run demo/streamlit_app.py
+git clone https://github.com/zelinewang/dipole.git
+cd dipole
+
+# Python UI + deps
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r demo/requirements.txt
+
+# Configure (required)
+export OPENAI_API_KEY=sk-...          # agent reasoning
+export FAST_DEPLOY_MOCK=success       # optional: dry-run without a real deploy
+
+streamlit run demo/streamlit_app.py   # opens http://localhost:8501
 ```
 
-Open your browser to `http://localhost:8501` and start deploying!
+The Node CLI runs on Node built-ins (`dotenv` is loaded only if present), so there is **no `npm install`** step. For real deploys, install the provider CLI (`netlify-cli` or `vercel`) and set `NETLIFY_AUTH_TOKEN` / `VERCEL_TOKEN` — either in the environment, a root `.env`, or the in-app **Secrets** panel.
 
-## 💡 How to Use
+### Typical flow
 
-1. **Start a conversation**: Open the Dipole interface
-2. **Provide your project path**: Tell the AI where your project is located
-3. **Choose deployment options**: Ask to switch providers or methods if needed
-4. **Deploy**: Say "Deploy now" and watch the magic happen
-5. **Share**: Use QR codes or direct links to share your deployed site
+1. "My project path is `/absolute/path/to/project`" → the agent runs `plan`.
+2. "Use Netlify CLI" (or Vercel) → updates the deployment preference.
+3. "Deploy now" → live logs stream in; on success a URL appears and previews in an iframe.
+4. "Diagnose record `<id>`" / "Tail logs for `<id>`" → inspect a past run.
 
-### Example Conversation
+## What this is not
 
-```text
-You: My project is at /Users/john/my-react-app
-AI: I'll analyze your React project and create a deployment plan.
+- **Not a hosted service.** You run it locally. The [landing page](https://dipoler.netlify.app/) only points you to launch it on your own machine.
+- **Not production-hardened.** This is a ~7-commit demo of the agent loop, not a maintained tool.
+- **Not a replacement for the Netlify/Vercel CLIs** — it orchestrates them.
+- **Detection-limited.** It handles the common front-end project types it can recognize (static, React/Vite, Next.js, and similar); anything unusual may need manual setup.
 
-You: Use Netlify CLI instead
-AI: Updated preferences to use Netlify CLI method.
+## Tech
 
-You: Deploy now
-AI: Starting deployment... [Progress tracking and live logs appear]
-```
+Node.js agent (standard library + optional `dotenv`) · Streamlit + LangChain chat UI · OpenAI models · Netlify / Vercel deploy CLIs.
 
-## 🔐 Secrets & Tokens (In-App Input)
+## License
 
-Dipole provides a dedicated Secrets panel (left sidebar) to input and reuse required tokens:
+[MIT](LICENSE).
 
-- OPENAI_API_KEY (required)
-- OPENAI_MODEL (optional, defaults to "gpt-4o-mini")
-- NETLIFY_TOKEN (required for Netlify CLI/API flows)
-- VERCEL_TOKEN (required for Vercel CLI/API flows)
+## Acknowledgments
 
-When you click Save:
-
-- Secrets are stored in the current Streamlit session and can optionally be persisted to `state/user_secrets.json` (for reuse on this device).
-- All CLI subprocesses automatically receive these values via environment variables (e.g., `NETLIFY_AUTH_TOKEN`, `VERCEL_TOKEN`).
-- The AI agent is rebuilt to use `OPENAI_API_KEY` and the chosen `OPENAI_MODEL` immediately.
-
-Security note: `state/user_secrets.json` is stored on your local disk. Only enable “Remember on this device” on trusted, private machines.
-
-## 🛠️ Advanced Features
-
-### Environment Variables
-
-- `OPENAI_API_KEY`: Required for AI functionality
-- `FAST_DEPLOY_MOCK`: Set to `success`/`fail`/`rate_limit` for testing without real deployments
-
-### Supported Project Types
-
-- React (Create React App, Vite)
-- Next.js
-- Vue.js
-- Static HTML/CSS/JS
-- Gatsby
-- Nuxt.js
-- And many more...
-
-### Deployment Methods
-
-- **CLI Method**: Uses platform CLI tools (recommended)
-- **API Method**: Direct API integration (faster, requires additional setup)
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-1. **"No OpenAI API key found"**
-   - Ensure `OPENAI_API_KEY` is set in your `.env` file
-
-2. **"Command not found: netlify/vercel"**
-   - Install the respective CLI tools globally
-
-3. **"Permission denied"**
-   - Run `netlify login` or `vercel login` to authenticate
-
-4. **Preview not showing**
-   - Some platforms block iframe embedding; use the external link button
-
-### Getting Help
-
-- Check the **Logs** tab for detailed deployment information
-- Use the **Diagnose** tool for automatic error analysis
-- Copy logs using the built-in copy/download buttons
-
-## 🌐 Deployment Platforms
-
-### Netlify
-- **Pros**: Excellent for static sites, great free tier, form handling
-- **Setup**: `netlify login` after installing CLI
-- **Best for**: JAMstack sites, static generators, React apps
-
-### Vercel
-- **Pros**: Optimized for Next.js, edge functions, great performance
-- **Setup**: `vercel login` after installing CLI  
-- **Best for**: Next.js, React, serverless functions
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [Streamlit](https://streamlit.io/) and [LangChain](https://langchain.com/)
-- Powered by [OpenAI](https://openai.com/) GPT models
-- Deployment platforms: [Netlify](https://netlify.com/) and [Vercel](https://vercel.com/)
-
----
-
-## 🌐 Live Demo
-
-**🚀 [Try Dipole Now](https://dipoler.netlify.app/)** - Visit our live landing page and launch the application on YOUR LOCALHOST!
-
-**Ready to make deployment faster?** [Launch Dipole](#-quick-start) and experience the future of web deployment! ⚡
+Built with [Streamlit](https://streamlit.io/), [LangChain](https://langchain.com/), and [OpenAI](https://openai.com/); deploys via [Netlify](https://netlify.com/) and [Vercel](https://vercel.com/).
